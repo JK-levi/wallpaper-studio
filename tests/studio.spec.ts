@@ -1,7 +1,7 @@
 import { test, expect, type Page, type Locator } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
-type SavedDoc = { nodes: { color: string; position: { x: number; y: number } }[]; effects: Record<string, number>; shapes: { kind: string; colors: string[]; x: number; y: number; width: number; rotation: number; opacity: number }[] };
+type SavedDoc = { animation: { playing: boolean }; nodes: { color: string; position: { x: number; y: number } }[]; effects: Record<string, number>; shapes: { kind: string; colors: string[]; x: number; y: number; width: number; rotation: number; opacity: number }[] };
 const runtimeErrors = new WeakMap<Page, string[]>();
 const saved = (page: Page): Promise<SavedDoc> => page.evaluate(() => JSON.parse(localStorage.getItem('jlk-wallpaper-autosave-v1') || '{}').doc);
 async function tool(page: Page, name: string) {
@@ -130,10 +130,14 @@ test('phone edits mesh, colors and effects, undo/redo and refresh persist', asyn
   await closePanel(page);
   await page.getByRole('button', { name: 'Play animation', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Pause animation', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Pause animation', exact: true }).click();
+  // Wait for the debounced autosave; snapshot a genuinely playing document.
+  await expect.poll(async () => (await saved(page)).animation.playing).toBe(true);
   const edited = await saved(page);
   await page.reload();
-  await expect.poll(() => saved(page)).toEqual(edited);
+  await expect(page.getByRole('button', { name: 'Play animation', exact: true })).toBeVisible();
+  await expect.poll(() => saved(page)).toEqual({
+    ...edited, animation: { ...edited.animation, playing: false },
+  });
 });
 
 test('editable shapes survive refresh and export as real PNG pixels', async ({ page }, testInfo) => {
