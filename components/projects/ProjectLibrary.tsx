@@ -24,6 +24,8 @@ export function ProjectAutosave() {
       const saved = localStorage.getItem(AUTOSAVE);
       if (saved) {
         const doc = parseImportedJson(saved);
+        // Playback is transient: recover every editing setting, but resume still.
+        doc.animation.playing = false;
         useMeshStore.setState({ doc, past: [], future: [], selectedId: null });
       } else {
         const doc = structuredClone(PRESETS.find(p => p.name === "Glass Mosaic")?.doc ?? defaultDoc());
